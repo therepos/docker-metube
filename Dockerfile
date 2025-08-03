@@ -1,11 +1,9 @@
 FROM alexta69/metube:latest
 
-# Install dependencies
-RUN apt update && \
-    apt install -y python3 python3-pip ffmpeg && \
-    pip3 install mutagen && \
-    rm -rf /var/lib/apt/lists/*
+# Install dependencies using Alpine's apk
+RUN apk add --no-cache python3 py3-pip ffmpeg && \
+    pip3 install mutagen
 
-# Add the postprocessing script
+# Add your postprocessing script
 COPY postprocess.py /postprocess/postprocess.py
 RUN chmod +x /postprocess/postprocess.py
