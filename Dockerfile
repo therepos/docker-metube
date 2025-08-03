@@ -1,10 +1,12 @@
 FROM alexta69/metube:latest
 
-RUN apk add --no-cache python3 py3-pip inotify-tools && \
+RUN apk add --no-cache python3 py3-pip ffmpeg inotify-tools && \
     pip3 install mutagen
 
-COPY postprocess.py /app/postprocess.py
-COPY cover.png /app/cover.png
+COPY postprocess.py /postprocess/postprocess.py
+COPY cover.png /postprocess/cover.png
+COPY entrypoint.sh /entrypoint.sh
 
-ENTRYPOINT ["/sbin/tini", "--"]
-CMD ["sh", "-c", "python3 /app/postprocess.py & exec python3 -u /app/main.py"]
+RUN chmod +x /postprocess/postprocess.py /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]
