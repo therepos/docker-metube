@@ -2,8 +2,8 @@
 
 echo "[ENTRYPOINT $(date)] Starting MeTube + watcher" >> /app/postprocess.log
 
-# Start MeTube in background
-python3 /app/main.py --download-archive /downloads/archive.txt &
+# Start MeTube (provided by base image)
+python3 /opt/metube/main.py --download-archive /downloads/archive.txt &
 METUBE_PID=$!
 
 # Start the inotify watcher

@@ -3,7 +3,6 @@ FROM alexta69/metube:latest
 RUN apk add --no-cache python3 py3-pip ffmpeg inotify-tools && \
     pip3 install mutagen
 
-COPY main.py /app/main.py
 COPY postprocess.py /postprocess/postprocess.py
 COPY cover.png /postprocess/cover.png
 COPY entrypoint.sh /entrypoint.sh
