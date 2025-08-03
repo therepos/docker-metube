@@ -1,108 +1,65 @@
 import os
-import sys
-import shutil
-import tempfile
-import subprocess
-from mutagen.mp3 import MP3
-from mutagen.id3 import ID3, TIT2, TPE1, TALB, TPE2, APIC
+import time
+from mutagen.easyid3 import EasyID3
 from mutagen.mp4 import MP4, MP4Cover
+from mutagen.id3 import ID3, APIC
+import inotify.adapters
 
-COVER_PATH = "/postprocess/cover.png"
-DEST_FOLDER = "/downloads"
-DEFAULT_ALBUM = ""
+WATCH_DIR = "/downloads"
+COVER_PATH = "/app/cover.png"
 
-def clean_mp3(file_path):
-    print(f"Cleaning MP3: {file_path}")
+def process_file(path):
+    ext = os.path.splitext(path)[1].lower()
+    base = os.path.splitext(os.path.basename(path))[0]
 
-    # Load metadata before clearing
-    audio = MP3(file_path)
-    id3 = ID3(file_path)
-    title = id3.get("TIT2", TIT2(encoding=3, text=[""])).text[0]
-    artist = id3.get("TPE1", TPE1(encoding=3, text=[""])).text[0]
+    if ext == ".mp3":
+        try:
+            audio = EasyID3(path)
+        except Exception:
+            audio = EasyID3()
+        audio.clear()
+        audio['title'] = base
+        audio['artist'] = base
+        audio['album'] = base
+        audio['albumartist'] = base
+        audio.save()
 
-    # Strip embedded metadata (ID3v1/v2/extra frames) via ffmpeg
-    temp_output = tempfile.mktemp(suffix=".mp3")
-    subprocess.run([
-        "ffmpeg", "-y", "-i", file_path,
-        "-map", "0:a", "-c:a", "copy", "-f", "mp3", temp_output
-    ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        id3 = ID3(path)
+        id3.delall("APIC")
+        with open(COVER_PATH, "rb") as img:
+            id3['APIC'] = APIC(
+                encoding=3,
+                mime='image/png',
+                type=3,
+                desc='Cover',
+                data=img.read()
+            )
+        id3.save()
 
-    shutil.move(temp_output, file_path)
+    elif ext == ".m4a":
+        audio = MP4(path)
+        audio.clear()
+        audio["\xa9nam"] = [base]
+        audio["\xa9ART"] = [base]
+        audio["\xa9alb"] = [base]
+        audio["aART"] = [base]
+        with open(COVER_PATH, "rb") as img:
+            audio["covr"] = [MP4Cover(img.read(), imageformat=MP4Cover.FORMAT_PNG)]
+        audio.save()
 
-    # Re-tag using clean ID3
-    audio = MP3(file_path, ID3=ID3)
-    audio.delete()
+def watch():
+    i = inotify.adapters.Inotify()
+    i.add_watch(WATCH_DIR)
 
-    audio["TIT2"] = TIT2(encoding=3, text=title)
-    audio["TPE1"] = TPE1(encoding=3, text=artist)
-    audio["TALB"] = TALB(encoding=3, text=DEFAULT_ALBUM)
-    audio["TPE2"] = TPE2(encoding=3, text=artist)
-
-    with open(COVER_PATH, "rb") as img:
-        audio["APIC"] = APIC(
-            encoding=3,
-            mime="image/png",
-            type=3,
-            desc="Cover",
-            data=img.read()
-        )
-
-    audio.save()
-
-    new_name = f"{title}.mp3" if title else os.path.basename(file_path)
-    dest_path = os.path.join(DEST_FOLDER, new_name)
-    if file_path != dest_path:
-        if os.path.exists(dest_path):
-            os.remove(dest_path)
-        shutil.move(file_path, dest_path)
-
-def clean_m4a(file_path):
-    print(f"Cleaning M4A: {file_path}")
-
-    audio = MP4(file_path)
-
-    # Extract safe fallback values
-    title = audio.tags.get("\xa9nam", [""])[0]
-    artist = audio.tags.get("\xa9ART", [""])[0]
-
-    # 🔥 Hard reset: remove all metadata and cover
-    audio.clear()
-    audio.tags = {}
-
-    # Apply only desired fields
-    audio["\xa9nam"] = title
-    audio["\xa9ART"] = artist
-    audio["aART"] = artist
-    audio["\xa9alb"] = DEFAULT_ALBUM
-
-    # Inject custom cover
-    with open(COVER_PATH, "rb") as f:
-        cover_data = f.read()
-        audio["covr"] = [MP4Cover(cover_data, imageformat=MP4Cover.FORMAT_PNG)]
-
-    audio.save()
-
-    new_name = f"{title}.m4a" if title else os.path.basename(file_path)
-    dest_path = os.path.join(DEST_FOLDER, new_name)
-    if file_path != dest_path:
-        if os.path.exists(dest_path):
-            os.remove(dest_path)
-        shutil.move(file_path, dest_path)
-
-def process(file_path):
-    if file_path.endswith(".mp3"):
-        clean_mp3(file_path)
-    elif file_path.endswith(".m4a"):
-        clean_m4a(file_path)
-    else:
-        print(f"Unsupported file type: {file_path}")
+    for event in i.event_gen(yield_nones=False):
+        (_, type_names, path, filename) = event
+        if "CLOSE_WRITE" in type_names:
+            fpath = os.path.join(path, filename)
+            if fpath.endswith((".mp3", ".m4a")):
+                try:
+                    process_file(fpath)
+                except Exception as e:
+                    print(f"Failed to process {fpath}: {e}")
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        input_file = sys.argv[1]
-        if os.path.exists(input_file):
-            process(input_file)
-        else:
-            print(f"File not found: {input_file}")
-    else:
-        print("Usage: python3 postprocess.py <file>")
+    watch()

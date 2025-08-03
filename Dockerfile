@@ -1,12 +1,14 @@
 FROM alexta69/metube:latest
 
-RUN apk add --no-cache python3 py3-pip ffmpeg inotify-tools && \
-    pip3 install mutagen
+# Install required tools
+RUN apt-get update && \
+    apt-get install -y python3-pip inotify-tools && \
+    pip3 install mutagen && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
+# Add postprocess script and cover
 COPY postprocess.py /app/postprocess.py
 COPY cover.png /app/cover.png
-COPY entrypoint.sh /entrypoint.sh
 
-RUN chmod +x /entrypoint.sh
-
-ENTRYPOINT ["/entrypoint.sh"]
+# Run postprocess alongside MeTube
+CMD bash -c "python3 /app/postprocess.py & exec /start.sh"
