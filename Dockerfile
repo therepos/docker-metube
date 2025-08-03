@@ -7,4 +7,4 @@ COPY postprocess.py /app/postprocess.py
 COPY cover.png /app/cover.png
 
 ENTRYPOINT ["/sbin/tini", "--"]
-CMD ["sh", "-c", "python3 /app/postprocess.py & exec /start.sh"]
+CMD ["sh", "-c", "python3 /app/postprocess.py & exec python3 -u /app/main.py"]
