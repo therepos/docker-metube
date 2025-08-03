@@ -14,13 +14,13 @@ DEFAULT_ALBUM = ""
 def clean_mp3(file_path):
     print(f"Cleaning MP3: {file_path}")
 
-    # Extract metadata before wiping
+    # Load metadata before clearing
     audio = MP3(file_path)
     id3 = ID3(file_path)
     title = id3.get("TIT2", TIT2(encoding=3, text=[""])).text[0]
     artist = id3.get("TPE1", TPE1(encoding=3, text=[""])).text[0]
 
-    # Re-encode to strip hidden metadata completely
+    # Strip embedded metadata (ID3v1/v2/extra frames) via ffmpeg
     temp_output = tempfile.mktemp(suffix=".mp3")
     subprocess.run([
         "ffmpeg", "-y", "-i", file_path,
@@ -29,15 +29,15 @@ def clean_mp3(file_path):
 
     shutil.move(temp_output, file_path)
 
-    # Add clean tags
+    # Re-tag using clean ID3
     audio = MP3(file_path, ID3=ID3)
     audio.delete()
+
     audio["TIT2"] = TIT2(encoding=3, text=title)
     audio["TPE1"] = TPE1(encoding=3, text=artist)
     audio["TALB"] = TALB(encoding=3, text=DEFAULT_ALBUM)
     audio["TPE2"] = TPE2(encoding=3, text=artist)
 
-    # Add new cover
     with open(COVER_PATH, "rb") as img:
         audio["APIC"] = APIC(
             encoding=3,
@@ -49,7 +49,6 @@ def clean_mp3(file_path):
 
     audio.save()
 
-    # Rename file
     new_name = f"{title}.mp3" if title else os.path.basename(file_path)
     dest_path = os.path.join(DEST_FOLDER, new_name)
     if file_path != dest_path:
@@ -59,28 +58,30 @@ def clean_mp3(file_path):
 
 def clean_m4a(file_path):
     print(f"Cleaning M4A: {file_path}")
+
     audio = MP4(file_path)
 
+    # Extract safe fallback values
     title = audio.tags.get("\xa9nam", [""])[0]
     artist = audio.tags.get("\xa9ART", [""])[0]
 
-    # Remove all existing tags
+    # 🔥 Hard reset: remove all metadata and cover
     audio.clear()
+    audio.tags = {}
 
-    # Re-apply only whitelisted fields
+    # Apply only desired fields
     audio["\xa9nam"] = title
     audio["\xa9ART"] = artist
     audio["aART"] = artist
     audio["\xa9alb"] = DEFAULT_ALBUM
 
-    # Replace cover image
+    # Inject custom cover
     with open(COVER_PATH, "rb") as f:
         cover_data = f.read()
         audio["covr"] = [MP4Cover(cover_data, imageformat=MP4Cover.FORMAT_PNG)]
 
     audio.save()
 
-    # Rename file
     new_name = f"{title}.m4a" if title else os.path.basename(file_path)
     dest_path = os.path.join(DEST_FOLDER, new_name)
     if file_path != dest_path:
