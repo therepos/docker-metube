@@ -8,12 +8,12 @@ from mutagen.mp3 import MP3
 from mutagen.id3 import ID3, TIT2, TPE1, TALB, TPE2, APIC
 from mutagen.mp4 import MP4, MP4Cover
 
-COVER_PATH = "/postprocess/cover.png"
+COVER_PATH = "/app/cover.png"
 DEST_FOLDER = "/downloads"
 DEFAULT_ALBUM = ""
 
 def log(msg):
-    with open("/downloads/postprocess.log", "a") as f:
+    with open("/app/postprocess.log", "a") as f:
         f.write(f"[POSTPROCESS {datetime.now()}] {msg}\n")
 
 def clean_mp3(file_path):
