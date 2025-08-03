@@ -9,4 +9,4 @@ COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 ENTRYPOINT ["/entrypoint.sh"]
-CMD ["python3", "-u", "/app/main.py"]
+CMD ["/start.sh"]

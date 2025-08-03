@@ -19,5 +19,5 @@ DEST="/mnt/sec/media/music"
   done
 ) &
 
-# Now launch MeTube
+# Hand over to MeTube
 exec "$@"
