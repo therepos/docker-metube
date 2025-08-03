@@ -1,6 +1,6 @@
 FROM alexta69/metube:latest
 
-RUN apt update && apt install -y python3-pip ffmpeg && \
+RUN apk add --no-cache python3 py3-pip ffmpeg && \
     pip3 install mutagen
 
 COPY postprocess.py /app/
