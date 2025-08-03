@@ -6,8 +6,9 @@ services:
       - "3010:8081"
     volumes:
       - /mnt/sec/media/music:/downloads
-    command: [
-      "--download-archive", "/downloads/archive.txt",
-      "--exec", "python3 /postprocess/postprocess.py {}"
-    ]
+    command:
+      - --download-archive
+      - /downloads/archive.txt
+      - --exec
+      - python3 /postprocess/postprocess.py {}
     restart: unless-stopped
