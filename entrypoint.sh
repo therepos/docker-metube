@@ -1,7 +1,8 @@
 #!/bin/sh
+# wrapper entrypoint
 
-# Background postprocess watcher
-python3 /app/postprocess.py &
+# launch your postprocessor in background
+python3 /wrapper/postprocess.py &
 
-# Run MeTube’s original entrypoint
+# pass control to MeTube's official entrypoint
 exec /docker-entrypoint.sh "$@"
