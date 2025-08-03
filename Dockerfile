@@ -1,11 +1,17 @@
 FROM alexta69/metube:latest
 
-RUN apk add --no-cache python3 py3-pip ffmpeg inotify-tools && \
-    pip3 install mutagen
+# Install dependencies
+RUN apk add --no-cache ffmpeg python3 py3-pip build-base libffi-dev
 
-COPY postprocess.py /postprocess.py
-COPY cover.png /cover.png
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+# Install Python packages
+RUN pip install mutagen watchdog
 
-ENTRYPOINT ["/entrypoint.sh"]
+# Copy custom files
+COPY postprocess.py /app/postprocess.py
+COPY cover.png /app/cover.png
+
+# Set workdir
+WORKDIR /app
+
+# Optional: run postprocess on start (or trigger another way)
+CMD ["python3", "postprocess.py"]
