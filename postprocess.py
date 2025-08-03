@@ -1,50 +1,36 @@
 import os
 import sys
 import shutil
-from mutagen.easyid3 import EasyID3
-from mutagen.id3 import ID3, APIC, error
 from mutagen.mp3 import MP3
+from mutagen.id3 import ID3, TIT2, TPE1, TALB, TPE2, APIC, error
 from mutagen.mp4 import MP4, MP4Cover
 
 COVER_PATH = "/postprocess/cover.png"
 DEST_FOLDER = "/downloads"
-DEFAULT_ALBUM = ""  # Use blank instead of "Unknown"
-
-WHITELIST_ID3 = {"title", "artist", "album", "albumartist"}
-WHITELIST_MP4 = ["\xa9nam", "\xa9ART", "aART", "\xa9alb"]
+DEFAULT_ALBUM = ""
 
 def clean_mp3(file_path):
     print(f"Processing MP3: {file_path}")
-    audio = MP3(file_path, ID3=EasyID3)
 
-    title = audio.get("title", [""])[0]
-    artist = audio.get("artist", [""])[0]
-    album = audio.get("album", [""])[0] or DEFAULT_ALBUM
+    audio = MP3(file_path)
+    id3 = ID3(file_path)
 
-    # Remove all EasyID3 metadata
-    audio.delete()
+    # Extract existing title and artist
+    title = id3.get("TIT2", TIT2(encoding=3, text=[""])).text[0]
+    artist = id3.get("TPE1", TPE1(encoding=3, text=[""])).text[0]
 
-    audio["title"] = title
-    audio["artist"] = artist
-    audio["albumartist"] = artist
-    audio["album"] = album
-    audio.save()
+    # Remove all tags (including old cover)
+    id3.clear()
 
-    # Reload with full ID3 tag control
-    audio = MP3(file_path, ID3=ID3)
-    try:
-        audio.add_tags()
-    except error:
-        pass
+    # Add only the tags we care about
+    id3.add(TIT2(encoding=3, text=title))
+    id3.add(TPE1(encoding=3, text=artist))
+    id3.add(TALB(encoding=3, text=DEFAULT_ALBUM))
+    id3.add(TPE2(encoding=3, text=artist))  # Album artist
 
-    # Remove all existing cover images
-    for tag in list(audio.tags.keys()):
-        if tag.startswith("APIC") or tag not in WHITELIST_ID3:
-            del audio.tags[tag]
-
-    # Add new embedded cover
+    # Add new cover
     with open(COVER_PATH, "rb") as img:
-        audio.tags.add(
+        id3.add(
             APIC(
                 encoding=3,
                 mime="image/png",
@@ -54,9 +40,9 @@ def clean_mp3(file_path):
             )
         )
 
-    audio.save()
+    id3.save(file_path)
 
-    # Rename to title
+    # Rename file to title
     new_name = f"{title}.mp3" if title else os.path.basename(file_path)
     dest_path = os.path.join(DEST_FOLDER, new_name)
     if file_path != dest_path:
@@ -70,18 +56,17 @@ def clean_m4a(file_path):
 
     title = audio.tags.get("\xa9nam", [""])[0]
     artist = audio.tags.get("\xa9ART", [""])[0]
-    album = audio.tags.get("\xa9alb", [""])[0] if "\xa9alb" in audio.tags else DEFAULT_ALBUM
+    album = DEFAULT_ALBUM
 
     # Clear all tags
     audio.clear()
 
-    # Set only desired metadata
+    # Set clean metadata
     audio["\xa9nam"] = title
     audio["\xa9ART"] = artist
     audio["aART"] = artist
     audio["\xa9alb"] = album
 
-    # Remove old covers, then set custom one
     with open(COVER_PATH, "rb") as f:
         cover_data = f.read()
         audio["covr"] = [MP4Cover(cover_data, imageformat=MP4Cover.FORMAT_PNG)]
