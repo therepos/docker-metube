@@ -1,11 +1,11 @@
 FROM alexta69/metube:latest
 
-RUN apk add --no-cache ffmpeg inotify-tools python3 py3-pip build-base libffi-dev \
+RUN apk add --no-cache ffmpeg inotify-tools python3 py3-pip \
  && pip install mutagen
 
 COPY postprocess.py cover.png /app/
+COPY entrypoint.sh /entrypoint.sh
 
-RUN chmod +x /app/postprocess.py
+RUN chmod +x /entrypoint.sh
 
-# Use CMD to run your watcher then MeTube's original startup
-CMD ["sh", "-c", "python3 /app/postprocess.py & exec ./docker-entrypoint.sh"]
+ENTRYPOINT ["/entrypoint.sh"]
