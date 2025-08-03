@@ -1,8 +1,10 @@
 import os
 import sys
 import shutil
+import tempfile
+import subprocess
 from mutagen.mp3 import MP3
-from mutagen.id3 import ID3, TIT2, TPE1, TALB, TPE2, APIC, error
+from mutagen.id3 import ID3, TIT2, TPE1, TALB, TPE2, APIC
 from mutagen.mp4 import MP4, MP4Cover
 
 COVER_PATH = "/postprocess/cover.png"
@@ -10,39 +12,44 @@ DEST_FOLDER = "/downloads"
 DEFAULT_ALBUM = ""
 
 def clean_mp3(file_path):
-    print(f"Processing MP3: {file_path}")
+    print(f"Cleaning MP3: {file_path}")
 
+    # Extract metadata before wiping
     audio = MP3(file_path)
     id3 = ID3(file_path)
-
-    # Extract existing title and artist
     title = id3.get("TIT2", TIT2(encoding=3, text=[""])).text[0]
     artist = id3.get("TPE1", TPE1(encoding=3, text=[""])).text[0]
 
-    # Remove all tags (including old cover)
-    id3.clear()
+    # Re-encode to strip hidden metadata completely
+    temp_output = tempfile.mktemp(suffix=".mp3")
+    subprocess.run([
+        "ffmpeg", "-y", "-i", file_path,
+        "-map", "0:a", "-c:a", "copy", "-f", "mp3", temp_output
+    ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-    # Add only the tags we care about
-    id3.add(TIT2(encoding=3, text=title))
-    id3.add(TPE1(encoding=3, text=artist))
-    id3.add(TALB(encoding=3, text=DEFAULT_ALBUM))
-    id3.add(TPE2(encoding=3, text=artist))  # Album artist
+    shutil.move(temp_output, file_path)
+
+    # Add clean tags
+    audio = MP3(file_path, ID3=ID3)
+    audio.delete()
+    audio["TIT2"] = TIT2(encoding=3, text=title)
+    audio["TPE1"] = TPE1(encoding=3, text=artist)
+    audio["TALB"] = TALB(encoding=3, text=DEFAULT_ALBUM)
+    audio["TPE2"] = TPE2(encoding=3, text=artist)
 
     # Add new cover
     with open(COVER_PATH, "rb") as img:
-        id3.add(
-            APIC(
-                encoding=3,
-                mime="image/png",
-                type=3,
-                desc="Cover",
-                data=img.read()
-            )
+        audio["APIC"] = APIC(
+            encoding=3,
+            mime="image/png",
+            type=3,
+            desc="Cover",
+            data=img.read()
         )
 
-    id3.save(file_path)
+    audio.save()
 
-    # Rename file to title
+    # Rename file
     new_name = f"{title}.mp3" if title else os.path.basename(file_path)
     dest_path = os.path.join(DEST_FOLDER, new_name)
     if file_path != dest_path:
@@ -51,28 +58,29 @@ def clean_mp3(file_path):
         shutil.move(file_path, dest_path)
 
 def clean_m4a(file_path):
-    print(f"Processing M4A: {file_path}")
+    print(f"Cleaning M4A: {file_path}")
     audio = MP4(file_path)
 
     title = audio.tags.get("\xa9nam", [""])[0]
     artist = audio.tags.get("\xa9ART", [""])[0]
-    album = DEFAULT_ALBUM
 
-    # Clear all tags
+    # Remove all existing tags
     audio.clear()
 
-    # Set clean metadata
+    # Re-apply only whitelisted fields
     audio["\xa9nam"] = title
     audio["\xa9ART"] = artist
     audio["aART"] = artist
-    audio["\xa9alb"] = album
+    audio["\xa9alb"] = DEFAULT_ALBUM
 
+    # Replace cover image
     with open(COVER_PATH, "rb") as f:
         cover_data = f.read()
         audio["covr"] = [MP4Cover(cover_data, imageformat=MP4Cover.FORMAT_PNG)]
 
     audio.save()
 
+    # Rename file
     new_name = f"{title}.m4a" if title else os.path.basename(file_path)
     dest_path = os.path.join(DEST_FOLDER, new_name)
     if file_path != dest_path:
