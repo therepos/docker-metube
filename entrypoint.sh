@@ -1,11 +1,18 @@
 #!/bin/sh
 
-# Create log file if it doesn't exist
-echo "[ENTRYPOINT $(date)] Starting entrypoint.sh" >> /downloads/postprocess.log
+echo "[ENTRYPOINT $(date)] Starting MeTube + watcher" >> /downloads/postprocess.log
 
-# Force yt-dlp to trigger postprocess.py
-ARGS="--download-archive /downloads/archive.txt --exec python3 /postprocess/postprocess.py {}"
+# Start MeTube in background
+python3 app/main.py --download-archive /downloads/archive.txt &
+METUBE_PID=$!
 
-echo "[ENTRYPOINT $(date)] Running MeTube with args: $ARGS" >> /downloads/postprocess.log
+# Start the inotify watcher
+inotifywait -m /downloads -e close_write |
+while read path action file; do
+  if echo "$file" | grep -Ei '\.mp3$|\.m4a$'; then
+    echo "[WATCHER $(date)] Detected $file – running postprocess.py" >> /downloads/postprocess.log
+    python3 /postprocess/postprocess.py "/downloads/$file" >> /downloads/postprocess.log 2>&1
+  fi
+done &
 
-exec python3 app/main.py $ARGS
+wait $METUBE_PID

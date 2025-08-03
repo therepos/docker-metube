@@ -1,6 +1,6 @@
 FROM alexta69/metube:latest
 
-RUN apk add --no-cache python3 py3-pip ffmpeg && \
+RUN apk add --no-cache python3 py3-pip ffmpeg inotify-tools && \
     pip3 install mutagen
 
 COPY postprocess.py /postprocess/postprocess.py
