@@ -14,13 +14,13 @@ DEFAULT_ALBUM = ""
 def clean_mp3(file_path):
     print(f"Cleaning MP3: {file_path}")
 
-    # Load metadata before clearing
+    # Extract metadata
     audio = MP3(file_path)
     id3 = ID3(file_path)
     title = id3.get("TIT2", TIT2(encoding=3, text=[""])).text[0]
     artist = id3.get("TPE1", TPE1(encoding=3, text=[""])).text[0]
 
-    # Strip embedded metadata (ID3v1/v2/extra frames) via ffmpeg
+    # Strip metadata using ffmpeg re-encode
     temp_output = tempfile.mktemp(suffix=".mp3")
     subprocess.run([
         "ffmpeg", "-y", "-i", file_path,
@@ -29,7 +29,7 @@ def clean_mp3(file_path):
 
     shutil.move(temp_output, file_path)
 
-    # Re-tag using clean ID3
+    # Set only clean metadata
     audio = MP3(file_path, ID3=ID3)
     audio.delete()
 
@@ -58,31 +58,30 @@ def clean_mp3(file_path):
 
 def clean_m4a(file_path):
     print(f"Cleaning M4A: {file_path}")
-
     audio = MP4(file_path)
 
-    # Extract safe fallback values
-    title = audio.tags.get("\xa9nam", [""])[0]
-    artist = audio.tags.get("\xa9ART", [""])[0]
+    # 🔥 Remove all tags — including hidden/private Apple tags
+    keys_to_delete = list(audio.tags.keys())
+    for key in keys_to_delete:
+        del audio.tags[key]
 
-    # 🔥 Hard reset: remove all metadata and cover
-    audio.clear()
-    audio.tags = {}
+    # Use filename as title if needed
+    title = os.path.splitext(os.path.basename(file_path))[0]
+    artist = "Unknown"
 
-    # Apply only desired fields
+    # Set only clean metadata
     audio["\xa9nam"] = title
     audio["\xa9ART"] = artist
     audio["aART"] = artist
     audio["\xa9alb"] = DEFAULT_ALBUM
 
-    # Inject custom cover
+    # Inject custom cover image
     with open(COVER_PATH, "rb") as f:
-        cover_data = f.read()
-        audio["covr"] = [MP4Cover(cover_data, imageformat=MP4Cover.FORMAT_PNG)]
+        audio["covr"] = [MP4Cover(f.read(), imageformat=MP4Cover.FORMAT_PNG)]
 
     audio.save()
 
-    new_name = f"{title}.m4a" if title else os.path.basename(file_path)
+    new_name = f"{title}.m4a"
     dest_path = os.path.join(DEST_FOLDER, new_name)
     if file_path != dest_path:
         if os.path.exists(dest_path):
