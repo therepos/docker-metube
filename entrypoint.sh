@@ -1,12 +1,12 @@
 #!/bin/sh
 
-echo "[ENTRYPOINT $(date)] Starting MeTube + watcher" >> /app/postprocess.log
+echo "[ENTRYPOINT $(date)] Starting watcher" >> /app/postprocess.log
 
-# Start MeTube using the base image's command
-/usr/bin/python3 -m metube --download-archive /downloads/archive.txt &
+# Start the original MeTube startup command in the background
+/sbin/tini -- /start.sh &
 METUBE_PID=$!
 
-# Start the inotify watcher
+# Start watcher
 inotifywait -m /downloads -e close_write |
 while read path action file; do
   if echo "$file" | grep -Ei '\.mp3$|\.m4a$'; then
