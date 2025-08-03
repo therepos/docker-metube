@@ -12,15 +12,13 @@ COVER_PATH = "/postprocess/cover.png"
 DEST_FOLDER = "/downloads"
 DEFAULT_ALBUM = ""
 
-# Logging
 def log(msg):
     with open("/downloads/postprocess.log", "a") as f:
-        f.write(f"[{datetime.now()}] {msg}\n")
+        f.write(f"[POSTPROCESS {datetime.now()}] {msg}\n")
 
 def clean_mp3(file_path):
     log(f"Cleaning MP3: {file_path}")
 
-    # Extract metadata safely
     try:
         audio = MP3(file_path)
         id3 = ID3(file_path)
@@ -30,7 +28,6 @@ def clean_mp3(file_path):
         title = os.path.splitext(os.path.basename(file_path))[0]
         artist = ""
 
-    # Strip all embedded tags via ffmpeg
     temp_output = tempfile.mktemp(suffix=".mp3")
     subprocess.run([
         "ffmpeg", "-y", "-i", file_path,
@@ -39,7 +36,6 @@ def clean_mp3(file_path):
 
     shutil.move(temp_output, file_path)
 
-    # Set clean tags
     audio = MP3(file_path, ID3=ID3)
     audio.delete()
     audio["TIT2"] = TIT2(encoding=3, text=title)
@@ -57,20 +53,18 @@ def clean_mp3(file_path):
         )
     audio.save()
 
-    # Rename
     new_name = f"{title}.mp3" if title else os.path.basename(file_path)
     dest_path = os.path.join(DEST_FOLDER, new_name)
     if file_path != dest_path:
         if os.path.exists(dest_path):
             os.remove(dest_path)
         shutil.move(file_path, dest_path)
-    log(f"MP3 processed and renamed to {new_name}")
+    log(f"MP3 renamed to {new_name}")
 
 def clean_m4a(file_path):
     log(f"Cleaning M4A: {file_path}")
     audio = MP4(file_path)
 
-    # Clear all tags
     if audio.tags:
         for key in list(audio.tags.keys()):
             del audio.tags[key]
@@ -84,21 +78,20 @@ def clean_m4a(file_path):
     audio["\xa9alb"] = DEFAULT_ALBUM
 
     with open(COVER_PATH, "rb") as f:
-        cover_data = f.read()
-        audio["covr"] = [MP4Cover(cover_data, imageformat=MP4Cover.FORMAT_PNG)]
+        audio["covr"] = [MP4Cover(f.read(), imageformat=MP4Cover.FORMAT_PNG)]
 
     audio.save()
 
-    # Rename
     new_name = f"{title}.m4a"
     dest_path = os.path.join(DEST_FOLDER, new_name)
     if file_path != dest_path:
         if os.path.exists(dest_path):
             os.remove(dest_path)
         shutil.move(file_path, dest_path)
-    log(f"M4A processed and renamed to {new_name}")
+    log(f"M4A renamed to {new_name}")
 
 def process(file_path):
+    log(f"Script started with: {file_path}")
     if file_path.endswith(".mp3"):
         clean_mp3(file_path)
     elif file_path.endswith(".m4a"):
@@ -114,4 +107,4 @@ if __name__ == "__main__":
         else:
             log(f"File not found: {input_file}")
     else:
-        log("No file path provided.")
+        log("No input file path received.")
