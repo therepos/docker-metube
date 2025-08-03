@@ -3,31 +3,24 @@ import sys
 import shutil
 import tempfile
 import subprocess
-from datetime import datetime
 from mutagen.mp3 import MP3
 from mutagen.id3 import ID3, TIT2, TPE1, TALB, TPE2, APIC
 from mutagen.mp4 import MP4, MP4Cover
 
-COVER_PATH = "/app/cover.png"
+COVER_PATH = "/postprocess/cover.png"
 DEST_FOLDER = "/downloads"
 DEFAULT_ALBUM = ""
 
-def log(msg):
-    with open("/downloads/postprocess.log", "a") as f:
-        f.write(f"[POSTPROCESS {datetime.now()}] {msg}\n")
-
 def clean_mp3(file_path):
-    log(f"Cleaning MP3: {file_path}")
+    print(f"Cleaning MP3: {file_path}")
 
-    try:
-        audio = MP3(file_path)
-        id3 = ID3(file_path)
-        title = id3.get("TIT2", TIT2(encoding=3, text=[""])).text[0]
-        artist = id3.get("TPE1", TPE1(encoding=3, text=[""])).text[0]
-    except Exception:
-        title = os.path.splitext(os.path.basename(file_path))[0]
-        artist = ""
+    # Load metadata before clearing
+    audio = MP3(file_path)
+    id3 = ID3(file_path)
+    title = id3.get("TIT2", TIT2(encoding=3, text=[""])).text[0]
+    artist = id3.get("TPE1", TPE1(encoding=3, text=[""])).text[0]
 
+    # Strip embedded metadata (ID3v1/v2/extra frames) via ffmpeg
     temp_output = tempfile.mktemp(suffix=".mp3")
     subprocess.run([
         "ffmpeg", "-y", "-i", file_path,
@@ -36,8 +29,10 @@ def clean_mp3(file_path):
 
     shutil.move(temp_output, file_path)
 
+    # Re-tag using clean ID3
     audio = MP3(file_path, ID3=ID3)
     audio.delete()
+
     audio["TIT2"] = TIT2(encoding=3, text=title)
     audio["TPE1"] = TPE1(encoding=3, text=artist)
     audio["TALB"] = TALB(encoding=3, text=DEFAULT_ALBUM)
@@ -51,6 +46,7 @@ def clean_mp3(file_path):
             desc="Cover",
             data=img.read()
         )
+
     audio.save()
 
     new_name = f"{title}.mp3" if title else os.path.basename(file_path)
@@ -59,45 +55,47 @@ def clean_mp3(file_path):
         if os.path.exists(dest_path):
             os.remove(dest_path)
         shutil.move(file_path, dest_path)
-    log(f"MP3 renamed to {new_name}")
 
 def clean_m4a(file_path):
-    log(f"Cleaning M4A: {file_path}")
+    print(f"Cleaning M4A: {file_path}")
+
     audio = MP4(file_path)
 
-    if audio.tags:
-        for key in list(audio.tags.keys()):
-            del audio.tags[key]
+    # Extract safe fallback values
+    title = audio.tags.get("\xa9nam", [""])[0]
+    artist = audio.tags.get("\xa9ART", [""])[0]
 
-    title = os.path.splitext(os.path.basename(file_path))[0]
-    artist = ""
+    # 🔥 Hard reset: remove all metadata and cover
+    audio.clear()
+    audio.tags = {}
 
+    # Apply only desired fields
     audio["\xa9nam"] = title
     audio["\xa9ART"] = artist
     audio["aART"] = artist
     audio["\xa9alb"] = DEFAULT_ALBUM
 
+    # Inject custom cover
     with open(COVER_PATH, "rb") as f:
-        audio["covr"] = [MP4Cover(f.read(), imageformat=MP4Cover.FORMAT_PNG)]
+        cover_data = f.read()
+        audio["covr"] = [MP4Cover(cover_data, imageformat=MP4Cover.FORMAT_PNG)]
 
     audio.save()
 
-    new_name = f"{title}.m4a"
+    new_name = f"{title}.m4a" if title else os.path.basename(file_path)
     dest_path = os.path.join(DEST_FOLDER, new_name)
     if file_path != dest_path:
         if os.path.exists(dest_path):
             os.remove(dest_path)
         shutil.move(file_path, dest_path)
-    log(f"M4A renamed to {new_name}")
 
 def process(file_path):
-    log(f"Script started with: {file_path}")
     if file_path.endswith(".mp3"):
         clean_mp3(file_path)
     elif file_path.endswith(".m4a"):
         clean_m4a(file_path)
     else:
-        log(f"Unsupported file type: {file_path}")
+        print(f"Unsupported file type: {file_path}")
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
@@ -105,6 +103,6 @@ if __name__ == "__main__":
         if os.path.exists(input_file):
             process(input_file)
         else:
-            log(f"File not found: {input_file}")
+            print(f"File not found: {input_file}")
     else:
-        log("No input file path received.")
+        print("Usage: python3 postprocess.py <file>")
