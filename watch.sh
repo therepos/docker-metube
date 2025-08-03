@@ -2,7 +2,8 @@
 
 WATCH_DIR="/downloads"
 
-inotifywait -m -e close_write,moved_to --format "%w%f" "$WATCH_DIR" | while read FILE; do
+inotifywait -m -e close_write,moved_to --format '%w%f' "$WATCH_DIR" | while read FILE; do
+  echo "Detected file: $FILE"
   case "$FILE" in
     *.mp3|*.m4a)
       echo "Post-processing $FILE"
