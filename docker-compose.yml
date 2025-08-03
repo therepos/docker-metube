@@ -5,6 +5,5 @@ services:
     ports:
       - "3010:8081"
     volumes:
-      - /mnt/sec/apps/metube:/app
       - /mnt/sec/media/music:/downloads
     restart: unless-stopped
