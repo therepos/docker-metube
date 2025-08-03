@@ -1,14 +1,12 @@
 FROM alexta69/metube:latest
 
-# Install deps
 RUN apk add --no-cache ffmpeg python3 py3-pip build-base libffi-dev \
  && pip install mutagen watchdog
 
-# Create app dir and copy files
 WORKDIR /app
-COPY postprocess.py cover.png start.sh ./
 
-RUN chmod +x /app/start.sh
+COPY postprocess.py cover.png entrypoint.sh ./
+RUN chmod +x /app/entrypoint.sh
 
-# Start MeTube + postprocess
-ENTRYPOINT ["/app/start.sh"]
+# Use our wrapper, but keep original entrypoint intact
+ENTRYPOINT ["/app/entrypoint.sh"]
