@@ -1,7 +1,7 @@
 #!/bin/sh
 
-# Start postprocess in background
+# Background postprocess watcher
 python3 /app/postprocess.py &
 
-# Now exec MeTube's original entrypoint with any passed args
+# Run MeTube’s original entrypoint
 exec /docker-entrypoint.sh "$@"
