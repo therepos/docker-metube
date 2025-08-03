@@ -13,7 +13,7 @@ DEST_FOLDER = "/downloads"
 DEFAULT_ALBUM = ""
 
 def log(msg):
-    with open("/tmp/postprocess.log", "a") as f:
+    with open("/downloads/postprocess.log", "a") as f:
         f.write(f"[POSTPROCESS {datetime.now()}] {msg}\n")
 
 def clean_mp3(file_path):
