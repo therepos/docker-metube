@@ -5,7 +5,7 @@ from mutagen.easyid3 import EasyID3
 from mutagen.id3 import ID3, APIC
 
 WATCH_DIR = "/music"
-COVER_PATH = "/metube/cover.png"
+COVER_PATH = "/cover.png"
 
 class Handler(FileSystemEventHandler):
     def on_created(self, event):
