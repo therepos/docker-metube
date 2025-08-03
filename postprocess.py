@@ -3,7 +3,7 @@ import time
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler, FileMovedEvent
 from mutagen.mp3 import MP3
-from mutagen.id3 import ID3, APIC, TIT2, TPE1, TALB
+from mutagen.id3 import ID3, APIC
 from mutagen.mp4 import MP4, MP4Cover
 
 WATCH_DIR = "/music"
@@ -16,48 +16,38 @@ class Handler(FileSystemEventHandler):
             return
 
         print(f"📦 Final file moved in: {dest}")
-        time.sleep(1)  # Ensure file is finalized
+        time.sleep(1)
         self.process(dest)
 
     def process(self, path):
         print(f"🎯 Processing: {path}")
-        name = os.path.basename(path)
-        if " - " not in name:
-            print(f"⚠️ Skipping invalid filename: {name}")
-            return
-
-        artist, title = name.rsplit(" - ", 1)
-        title = title.rsplit(".", 1)[0]
-
         try:
             if path.endswith(".mp3"):
+                # Remove all tags and add custom cover
                 audio = MP3(path)
                 audio.delete()
                 audio.save()
-                tags = ID3(path)
-                tags["TIT2"] = TIT2(encoding=3, text=title)
-                tags["TPE1"] = TPE1(encoding=3, text=artist)
-                tags["TALB"] = TALB(encoding=3, text="MeTube")
+                tags = ID3()
                 with open(COVER_PATH, "rb") as img:
                     tags.add(APIC(mime="image/png", type=3, desc="Cover", data=img.read()))
-                tags.save()
-                print("✅ MP3 metadata + cover set.")
+                tags.save(path)
+                print("✅ MP3: cover injected.")
 
             elif path.endswith(".m4a"):
                 audio = MP4(path)
-                audio["\xa9nam"] = [title]
-                audio["\xa9ART"] = [artist]
-                audio["\xa9alb"] = ["MeTube"]
+                # Remove all tags
+                for k in list(audio.keys()):
+                    del audio[k]
                 with open(COVER_PATH, "rb") as f:
                     audio["covr"] = [MP4Cover(f.read(), imageformat=MP4Cover.FORMAT_PNG)]
                 audio.save()
-                print("✅ M4A metadata + cover set.")
+                print("✅ M4A: cover injected.")
 
         except Exception as e:
             print(f"❌ Failed to process {path}: {e}")
 
 if __name__ == "__main__":
-    print("🚀 Starting postprocessor (on file move)...")
+    print("🚀 Starting postprocessor (simplified)...")
     observer = Observer()
     handler = Handler()
     observer.schedule(handler, WATCH_DIR, recursive=False)
