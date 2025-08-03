@@ -12,12 +12,12 @@ DEST="/mnt/sec/media/music"
         echo "Post-processing $FILE"
         TMP="/tmp/$(basename "$FILE")"
         cp "$FILE" "$TMP"
-        python3 /app/postprocess.py "$TMP" && mv "$TMP" "$DEST/"
+        python3 /postprocess/postprocess.py "$TMP" && mv "$TMP" "$DEST/"
         echo "Moved to $DEST"
         ;;
     esac
   done
 ) &
 
-# Hand over to MeTube
+# Start MeTube — pass original command
 exec "$@"
