@@ -19,7 +19,7 @@ process_downloaded_file() {
 monitor_downloads() {
     local download_dir="/downloads"
     
-    # Use inotify to monitor for new files
+    # Use inotify to monitor for new files (inotify-tools already installed in Dockerfile)
     if command -v inotifywait >/dev/null 2>&1; then
         inotifywait -m -r -e close_write --format '%w%f' "$download_dir" | while read file; do
             if [[ "$file" =~ \.(mp3|flac|mp4|m4a|ogg)$ ]]; then
@@ -40,12 +40,6 @@ monitor_downloads() {
         done &
     fi
 }
-
-# Install inotify-tools if not present
-if ! command -v inotifywait >/dev/null 2>&1; then
-    echo "Installing inotify-tools for file monitoring..."
-    apt-get update && apt-get install -y inotify-tools
-fi
 
 # Start the monitoring in the background
 monitor_downloads

@@ -3,13 +3,16 @@ FROM alexta69/metube:latest
 # Install Python and required packages
 USER root
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
+# Install system dependencies (Alpine Linux uses apk)
+RUN apk add --no-cache \
     python3 \
-    python3-pip \
+    py3-pip \
     python3-dev \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
+    build-base \
+    jpeg-dev \
+    zlib-dev \
+    libjpeg \
+    inotify-tools
 
 # Copy requirements and install Python packages
 COPY requirements.txt /app/requirements.txt
