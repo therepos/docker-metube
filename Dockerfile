@@ -1,10 +1,14 @@
 FROM alexta69/metube:latest
 
-RUN apk add --no-cache ffmpeg python3 py3-pip build-base libffi-dev \
- && pip install mutagen watchdog
+# Install dependencies
+RUN apk add --no-cache ffmpeg inotify-tools python3 py3-pip build-base libffi-dev \
+ && pip install mutagen
 
-WORKDIR /wrapper
-COPY entrypoint.sh postprocess.py cover.png ./
-RUN sed -i 's/\r$//g' entrypoint.sh postprocess.py && chmod +x entrypoint.sh
+# Set working directory
+WORKDIR /app
 
-ENTRYPOINT ["/wrapper/entrypoint.sh"]
+# Copy custom scripts and assets
+COPY postprocess.py cover.png ./
+
+# Run postprocess in background, then start MeTube
+CMD ["sh", "-c", "python3 /app/postprocess.py & exec docker-entrypoint.sh"]
