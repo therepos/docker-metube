@@ -5,9 +5,8 @@ RUN apk add --no-cache python3 py3-pip ffmpeg inotify-tools && \
 
 COPY postprocess.py /app/
 COPY cover.png /app/
-COPY entrypoint.sh /entrypoint.sh
 COPY watch.sh /watch.sh
+COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh /watch.sh
 
 ENTRYPOINT ["/entrypoint.sh"]
-CMD ["./start.sh"]
