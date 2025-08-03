@@ -1,22 +1,19 @@
 FROM alexta69/metube:latest
 
-# Install Python and required packages
 USER root
 
-# Install system dependencies (Alpine Linux uses apk)
+# Install minimal dependencies
 RUN apk add --no-cache \
     python3 \
     py3-pip \
-    python3-dev \
-    build-base \
-    jpeg-dev \
-    zlib-dev \
-    libjpeg \
     inotify-tools
 
-# Copy requirements and install Python packages
-COPY requirements.txt /app/requirements.txt
-RUN pip3 install --no-cache-dir -r /app/requirements.txt
+# Use pre-built wheels when possible
+RUN pip3 install --upgrade pip
+
+# Install packages one by one for better error tracking
+RUN pip3 install --no-cache-dir mutagen==1.47.0
+RUN pip3 install --no-cache-dir --only-binary=all Pillow==10.4.0
 
 # Copy custom files
 COPY postprocess.py /app/postprocess.py
@@ -26,8 +23,6 @@ COPY entrypoint.sh /app/entrypoint.sh
 # Make scripts executable
 RUN chmod +x /app/entrypoint.sh /app/postprocess.py
 
-# Switch back to the original user
 USER $UID
 
-# Use custom entrypoint
 ENTRYPOINT ["/app/entrypoint.sh"]
