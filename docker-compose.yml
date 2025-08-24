@@ -10,7 +10,7 @@ services:
     restart: unless-stopped
 
   postprocessor:
-    image: ghcr.io/therepos/docker-metubetag:latest
+    image: ghcr.io/therepos/metubetag:latest
     container_name: metubetag
     volumes:
       - /mnt/sec/media/music:/music
